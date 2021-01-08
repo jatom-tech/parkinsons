@@ -1,0 +1,396 @@
+---
+title: "Final project in Data Science at Harvard University **Exploring indicators of Parkinsons Disease**"
+author: "Jan Thomsen"
+date: "01/08/2021"
+output:
+  pdf_document: 
+    toc: yes
+    toc_depth: 2
+    number_sections: yes
+    highlight: pygments
+    keep_tex: yes
+    fig_width: 4
+    fig_height: 3.5
+    fig_caption: yes
+    df_print: paged
+graphics: yes
+number_sections: yes
+geometry: margin=1.75cm
+documentclass: report
+fontsize: 12pt
+
+---
+\newpage
+Abstract: This is the final assignment for the Harvard Data Science Professional certificate Program with Professor of Biostatistics Rafael Irizarry from Harvard University. 
+
+In this capstone project, we had to choose your own dataset and we have to analyze it and show our machine learning knowledge.
+
+My motivation for diving into the area of Parkinsons Disease is that the last 2-3 years i have lived a process helping my father who has been diagnosed with Alzheimer Disease, which is somewhat related. The process from showing symptoms to actually being diagnosed and then degenerate into an unconscious state, has been a big challenge as the son. 
+
+My conditions to do the medical analysis is on on at third party basis and the emphasis has been to show my knowledge that i have accomplished during these courses. 
+
+This is also the final assignment for the Harvard Data Science Professional certificate Program with Professor of Biostatistics Rafael Irizarry from Harvard University. 
+
+It is the 9th and last course in the Data Science series offered by Harvard University:
+
+* **1. R basics**
+* **2. Visualization**
+* **3. Probability**
+* **4. Inference and modeling**
+* **5. Productivity tools**
+* **6. Wrangling**
+* **7. Linear regression**
+* **8. Machine learning**
+* **9. Capstone**
+
+In this capstone project, we given the dataset and instructions we have to clean, analyze and modelling it and show our Data Science knowledge."
+
+
+---
+\newpage
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = FALSE, fig.align = 'center')
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+# Install all needed libraries if it is not present
+if(!require(tidyverse)) install.packages("tidyverse") 
+if(!require(kableExtra)) install.packages("kableExtra")
+if(!require(tidyr)) install.packages("tidyr")
+if(!require(tidyverse)) install.packages("tidyverse")
+if(!require(stringr)) install.packages("stringr")
+if(!require(ggplot2)) install.packages("ggplot2")
+if(!require(gbm)) install.packages("gbm")
+if(!require(dplyr)) install.packages("dplyr")
+if(!require(caret)) install.packages("caret")
+if(!require(xgboost)) install.packages("xgboost")
+if(!require(e1071)) install.packages("e1071")
+if(!require(class)) install.packages("class")
+if(!require(ROCR)) install.packages("ROCR")
+if(!require(randomForest)) install.packages("randomForest")
+if(!require(PRROC)) install.packages("PRROC")
+if(!require(reshape2)) install.packages("reshape2")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+# Loading all needed libraries
+library(dplyr)
+library(tidyverse)
+library(kableExtra)
+library(tidyr)
+library(ggplot2)
+library(gbm)
+library(caret)
+library(xgboost)
+library(e1071)
+library(class)
+library(lightgbm)
+library(ROCR)
+library(randomForest)
+library(PRROC)
+library(reshape2)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(h2o)
+library(stringr)
+library(formatR)
+library(recosystem)
+library(knitr)
+library(scales)
+library(knitr)
+```
+
+# Nomenclature
+
+**PD** Parkingsins Diasease 
+
+Matrix column entries (attributes):
+
+* **MDVP:Fo(Hz)** - Average vocal fundamental frequency
+* **MDVP:Fhi(Hz)** - Maximum vocal fundamental frequency
+* **MDVP:Flo(Hz)** - Minimum vocal fundamental frequency
+* **MDVP:Jitter(%)**,
+* **MDVP:Jitter(Abs)**,
+* **MDVP:RAP,MDVP:PPQ,Jitter:DDP** - Several measures of variation in fundamental frequency
+* **MDVP:Shimmer,MDVP:Shimmer(dB),Shimmer:APQ3,Shimmer:APQ5,MDVP:APQ,Shimmer:DDA** - Several measures of variation in amplitude
+* **NHR,HNR** - Two measures of ratio of noise to tonal components in the voice
+status - Health status of the subject (one) - Parkinson's, (zero) - healthy
+* **RPDE,D2** - Two nonlinear dynamical complexity measures
+* **DFA** - Signal fractal scaling exponent
+* **spread1,spread2, PPE** - Three nonlinear measures of fundamental frequency variation 
+
+
+# Executive Summary
+
+Firstly the situation with the Parkinsons Disease '(PD)' has become increasingly worrying especially when you experience it entering your personal life.
+
+During the research presented in the dataset, I plan to focus on the following:
+
+1. Explore variables of Parkinsons through voice detection
+2. Which variables are important
+3. Perform a statistical test to see it is feasible method
+4. Views on more advanced model for voice PD detection
+
+For achieving the task of analyzing the dataset I have used various knowledge obtained in the 8 courses, but also my prior knowledge.
+
+# Exploratory Data Analysis
+
+## The Dataset
+The dataset is from the website Parkinsons Data Set - Oxford Parkinsons Disease Detection Dataset from 2008 which i find sufficiently challenging for this project. The dataset was created by Max Little of the University of Oxford, in collaboration with the National Centre for Voice and Speech, Denver, Colorado, who recorded the speech signals. The original study published the feature extraction methods for general voice disorders.
+
+This dataset is composed of a range of biomedical voice measurements from 31 people, 23 with Parkinsons disease (PD). Each column in the table is a particular voice measure, and each row corresponds one of 195 voice recordings from these individuals ("name" column). The main aim of the data 
+is to discriminate healthy people from those with PD, according to status column which is set to 0 for healthy and 1 for PD. There are around six recordings per patient, the name of the patient is identified in the first column.
+
+```{r, echo=FALSE}
+if(!file.exists("parkinsons.data")){
+  download.file("https://archive.ics.uci.edu/ml/machine-learning-databases/parkinsons/parkinsons.data", "parkinsons.data")
+}
+
+pd <- read.csv("parkinsons.data") # Point to local copy
+```
+
+As the table shows the original data set have 197 instances, 195 observations with 24 variables.
+
+Total sample:
+```{r}
+str(pd)
+```
+
+Global is for voice to text not Parkinson's disease we need to use the Coleman status to work separate the two groups into People Without Parkinson disease to underseas and individuals with with Parkinson's disease.
+
+Furthermore we will look into third. There are different variables to see if there is some some indicators that are more important than otherwise it will be you a very advanced job to try analyze the data.
+
+In the following summary if you could get a good overview of the data set and the differences. 
+
+Summary of total sample:
+```{r}
+summary(pd)
+```
+
+
+#PD Group and the Control Group
+
+
+It will be divided into two groups by sobsetting the "status" column.
+
+1. Individual PG The PD Group.
+0. Individuals Healthy (Control group)
+
+## PD group sample
+```{r echo=FALSE}
+#Separate data into Parkinsons and healthy individuals
+hth <- subset(pd, status=="0")
+pdi <- subset(pd, status=="1")
+str(pdi)
+summary(pdi)
+```
+```{r, echo=FALSE}
+
+```
+
+## Control group sample
+With healthy individuals to control how how are healthy individuals has their attributes on the voice detection.
+
+```{r, echo=FALSE}
+str(hth)
+summary(hth)
+```
+
+First firstly you can see that if you compare the two samples just by looking at the 6 digit summary. It's obvious that there is a difference but later we will diving to the t-test that will show all we with statistical certainty can conclude that there is a difference.
+
+# Sample - comments on population and samples
+The two samples first taken are Representing the two groups with 23 8 8 individual with appr. 6 measures, **48/8 and 147/23**.
+
+Will it say something about the population? No, it will not say anything about the population, because we do not knowvthe proportions of the two groups in the population and the sampling method. as we are informed the measurements was taking with "replacement", because there are 6 per individual.
+
+# Visualization of differences in the two samples
+## Boxplots
+```{r}
+
+library(ggplot2)
+pd$status <- as.factor(pd$status)
+p <- ggplot(pd, aes(x=status, y=Jitter.DDP)) + geom_boxplot()
+p + ggtitle("Jitter.DDP") +
+  xlab("Status") + ylab("Hz") + labs(title="Measure of variation in fundamental frequency(Jitter.DDP)",
+        x ="Status", y = "Hz")
+
+```
+
+\newpage
+```{r fig.height=4, fig.width=7}
+pds <- select(pd, MDVP.Fo.Hz., MDVP.Fhi.Hz., MDVP.Flo.Hz., status)
+df.m <- melt(pds, id.var = "status")
+p <- ggplot(data = df.m, aes(x=variable, y=value)) 
+p <- p + geom_boxplot(aes(fill = status))
+# if you want color for points replace group with colour=Label
+p <- p + geom_point(aes(y=value, group=status), position = position_dodge(width=0.75))
+p <- p + facet_wrap( ~ variable, scales="free")
+p <- p + xlab("") + ylab("Hz") + ggtitle("Vocal fundamental frequencys")
+p <- p + guides(fill=guide_legend(title="Status"))
+p 
+
+```
+```{r fig.height=4, fig.width=7}
+pds <- select(pd, spread1, spread2, PPE, status)
+df.m <- melt(pds, id.var = "status")
+p <- ggplot(data = df.m, aes(x=variable, y=value)) 
+p <- p + geom_boxplot(aes(fill = status))
+# if you want color for points replace group with colour=Label
+p <- p + geom_point(aes(y=value, group=status), position = position_dodge(width=0.75))
+p <- p + facet_wrap( ~ variable, scales="free")
+p <- p + xlab("") + ylab("Hz") + ggtitle("Overview important variables")
+p <- p + guides(fill=guide_legend(title="Status"))
+p 
+
+```
+## Density plots
+```{r}
+# Filled Density Plot
+
+pd %>% 
+  ggplot(aes(spread1, fill=status)) +
+  geom_density(alpha=0.2) + ggtitle("Comparation of nonlinear measures of fundamental frequency variation(spread1)")
+
+
+```
+
+## Correlations
+```{r}
+library(ggplot2)
+
+pd %>% ggplot(aes(MDVP.Jitter.Abs., Jitter.DDP, label = status, color=status)) + geom_label() + ggtitle("Relationship of Jitter.DDP and MDVP.jitter.Abs")
+```
+Plots of pairs of features after pre-processing by range normalization, showing examples of high correlation 
+
+Correlation on total sample:
+
+```{r}
+cor(pd$MDVP.Jitter.Abs.,pd$Jitter.DDP)
+```
+Sample PD
+```{r}
+cor(pdi$MDVP.Jitter.Abs.,pdi$Jitter.DDP)
+```
+
+Sample Control group
+```{r}
+cor(hth$MDVP.Jitter.Abs.,hth$Jitter.DDP)
+```
+
+
+You should see from the future served the redWhich is the single the PD this clustering towards the end PDD jitter This clustering on the lower side of the left sideThe chartAnd who is closely at the higher end of the scaleIt seems to haveA Good fitNow we will calculateBuilding a modelAnd are closely with the circles chat.
+
+To see If there is a statistical significance are went toSee if there is a difference in differences in the means. The two samples we need to majorThe t-tests are off to independentSamplesThat
+
+Appropriate topic for them the next section.
+
+# Unpaired Two-Samples T-test
+
+## Assumptions
+Assumption 1: Are the two samples independents? 
+Yes, since the samples from the PD group and Control Group are not related.
+
+Assumption 2: Are the data from each of the 2 groups follow a normal distribution? 
+ I will use Shapiro-Wilk normality test.
+
+Null hypothesis: the data are normally distributed
+
+Alternative hypothesis: the data are not normally distributed
+
+```{r echo=FALSE}
+shapiro.test(pd$spread1)
+```
+From the output, the p-value < 0.05 implying that the distribution of the data **are** significantly different from normal distribution. In other words, we **cannot** assume the normality.
+
+However I choose to perform the t-test on spread1.
+
+## Statistical hypotheses
+$$H_0: m_A = m_B$$
+$$H_a: m_A \ne m_B$$
+
+## Citations on unpaired two-samples t-test
+If the variance of the two groups PD and control group are equivalent **homoscedasticity**, the t-test value, comparing the two samples **A and B**, can be calculated as follows.
+
+$$t = \frac{m_A - m_B}{\sqrt{ \frac{S^2}{n_A} + \frac{S^2}{n_B} }}$$
+where,
+* $m_A$ and $m_B$ represent the mean value of the group A and B, respectively.
+* $n_A$ and $n_B$ and nBnB represent the sizes of the group A and B, respectively.
+* $S^2$ is an estimator of the pooled variance of the two groups. It can be calculated as follows:
+
+$$S^2 = \frac{\sum{(x-m_A)^2}+\sum{(x-m_B)^2}}{n_A+n_B-2}$$
+Welch t-statistic is calculated as follows:
+
+$$t = \frac{m_A - m_B}{\sqrt{ \frac{S_A^2}{n_A} + \frac{S_B^2}{n_B} }}$$
+The degrees of freedom of Welch t-test is estimated as follows:
+
+$$df = (\frac{S_A^2}{n_A}+ \frac{S_B^2}{n_B^2}) / (\frac{S_A^4}{n_A^2(n_B-1)} + \frac{S_B^4}{n_B^2(n_B-1)} )$$
+## Compute t-test
+
+```{r}
+res <- t.test(spread1 ~ status, data = pd, var.equal = TRUE)
+res
+```
+
+If the p-value is inferior or equal to the significance level 0.05, we can reject the null hypothesis and accept the alternative hypothesis. In other words, we can conclude that the mean values of group PD and Control Group are **significantly different**.
+
+# Ensembles
+The idea of an ensemble is similar to the idea of combining data from different pollsters to obtain a better estimate of the true support for each candidate.
+
+In machine learning, one can usually greatly improve the final results by combining the results of different algorithms.
+
+This case is clearly a subjet and dataset for improving with ensembles.
+
+# Conclusion/results
+The research i have made on this project analyzing 195 instances with 24 variables i reached the following conclusions:
+
+1. The voice levels of individuals with Parkinsons disease have a different voice level than the control group.
+2. I have visualized an important part of the data set with a few charts 
+3. The future work will be on emsebling the data variables.
+
+**My take-out from the course**
+The knowledge that i have gained before this course - was started in 1990 with statistics with pen and paper, so I have refreshed and updated my statistics, but most importantly -  R - statistics calculations, R Markdown and the power of the new technology, i can certainly relate to now. 
+
+It has been a very interesting journey from my perspective. The core for me is that it is very important to improve the communication of knowledge, the visual part. That's a science. Its far more important than the quantity of charts that you may have in one report. 
+
+The idea must be to make complex relations into simple keystrokes for the audience or target group.
+
+January 2021
+
+Jan Thomsen
+
+\newpage
+
+# Appendix
+
+## 1.1 - The total datasets
+**The PD dataset**
+```{r}
+str(pdi)
+```
+
+```{r}
+summarise(pdi)
+```
+
+
+**The healthy dataset**
+
+```{r}
+str(hth)
+```
+
+```{r}
+summarise(hth)
+```
+
+
+## 2 - Acknowledgements
+'Exploiting Nonlinear Recurrence and Fractal Scaling Properties for Voice Disorder Detection' - Little MA, McSharry PE, Roberts SJ, Costello DAE, Moroz IM. BioMedical Engineering OnLine 2007, 6:23 (26 June 2007)
+Suitability of Dysphonia Measurements for Telemonitoring of Parkinson's
+Disease - Patrick Mcsharry University of Oxford, Eric James Hunter
+Michigan State University, Jennifer Spielman University of Colorado Boulder
+
+
+
+
